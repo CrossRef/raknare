@@ -1,0 +1,20 @@
+# Räknare
+
+DOI Resolution log analysis. 
+
+To run:
+
+Spark local:
+
+    sbt run
+
+Spark-submit
+
+    sbt-assembly
+
+    ~/Downloads/spark-1.4.1-bin-hadoop2.6/bin/spark-submit \
+    --conf spark.raknare.period="month" \
+    --conf spark.raknare.tasks="status" \
+    --conf spark.raknare.inputfiles="file:///Users/joe/data/doi-logs/million/access_log_2015*" \
+    --master local[*] \
+    --class org.crossref.räknare.Main /Users/joe/sc/räknare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar
