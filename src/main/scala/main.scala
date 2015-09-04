@@ -128,7 +128,7 @@ object Main {
 
   def parseDate(input: String) = {
     val dateFormat1 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy")
-    val dateFormat2 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy")
+    val dateFormat2 = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZ")
     val dateFormat3 = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'")
 
     val parsed = try {
