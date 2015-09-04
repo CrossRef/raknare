@@ -16,5 +16,14 @@ Spark-submit
     --conf spark.raknare.period="month" \
     --conf spark.raknare.tasks="status" \
     --conf spark.raknare.inputfiles="file:///Users/joe/data/doi-logs/million/access_log_2015*" \
+    --conf spark.raknare.outputdir="/tmp/raknare" \
+    --master local[*] \
+    --class org.crossref.räknare.Main /Users/joe/sc/räknare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar
+
+
+
+    --conf spark.raknare.period="month" \
+    --conf spark.raknare.tasks="status" \
+    --conf spark.raknare.inputfiles="/data-in/doi_logs/access_log_2015*" \
     --master local[*] \
     --class org.crossref.räknare.Main /Users/joe/sc/räknare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar

@@ -191,44 +191,44 @@ object Main {
   }
 
   // "www.xyz.com"
-  def fullDomainAllTime(lines: RDD[LogLine]) {
+  def fullDomainAllTime(lines: RDD[LogLine], outputDir: String) {
     val projection = lines.map(line => line.referrer.fullDomain)
     val counted = count(lines)
-    counted.map(tupleToVector).map(unparse).saveAsTextFile("/tmp/räknare/fullDomainCount")
+    counted.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/fullDomainCount")
 
   }
 
   // "xyz.com"
-  def domainAllTime(lines: RDD[LogLine]) {
+  def domainAllTime(lines: RDD[LogLine], outputDir: String) {
     val projection = lines.map(line => line.referrer.domain)
     val counted = count(lines)
-    counted.map(tupleToVector).map(unparse).saveAsTextFile("/tmp/räknare/domainCount")
+    counted.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/domainCount")
   }
 
   // "xyz"
-  def domainNameAllTime(lines: RDD[LogLine]) {
+  def domainNameAllTime(lines: RDD[LogLine], outputDir: String) {
     val projection = lines.map(line => line.referrer.domainName)
     val counted = count(lines)
-    counted.map(tupleToVector).map(unparse).saveAsTextFile("/tmp/räknare/domainNameCount")
+    counted.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/domainNameCount")
   }
 
   // "10.5555/12345678"
-  def doiAllTime(lines: RDD[LogLine]) {
+  def doiAllTime(lines: RDD[LogLine], outputDir: String) {
     val projection = lines.map(line => line.doi)
     val counted = count(lines)
-    counted.map(tupleToVector).map(unparse).saveAsTextFile("/tmp/räknare/doiCount")
+    counted.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/doiCount")
   }
 
   // "10.5555/12345678", "xyz.com"
-  def doiDomainAllTime(lines: RDD[LogLine]) {
+  def doiDomainAllTime(lines: RDD[LogLine], outputDir: String) {
     val projection = lines.map(line => (line.doi, line.referrer.domain))
     val counted = count(lines)
-    counted.map(tupleToVector).map(unparse).saveAsTextFile("/tmp/räknare/doiCount")
+    counted.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/doiCount")
   } 
 
   // Per period
 
-  def fullDomainPeriod(lines: RDD[LogLine], period: Symbol) {
+  def fullDomainPeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.referrer.fullDomain, line.date.year))
       case 'month => lines.map(line => (line.referrer.fullDomain, line.date.yearMonth))
@@ -236,10 +236,10 @@ object Main {
     }
 
     val counted = count(projection)
-    counted.map{case ((domain, period), count) => Vector(domain, period, count)}.map(unparse).saveAsTextFile("/tmp/räknare/fullDomain-" + period.name)
+    counted.map{case ((domain, period), count) => Vector(domain, period, count)}.map(unparse).saveAsTextFile(outputDir + "/fullDomain-" + period.name)
   }
 
-  def domainPeriod(lines: RDD[LogLine], period: Symbol) {
+  def domainPeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.referrer.domain, line.date.year))
       case 'month => lines.map(line => (line.referrer.domain, line.date.yearMonth))
@@ -247,10 +247,10 @@ object Main {
     }
 
     val counted = count(projection)
-    counted.map{case ((domain, period), count) => Vector(domain, period, count)}.map(unparse).saveAsTextFile("/tmp/räknare/domain-" + period.name)
+    counted.map{case ((domain, period), count) => Vector(domain, period, count)}.map(unparse).saveAsTextFile(outputDir + "/domain-" + period.name)
   }
 
-  def domainNamePeriod(lines: RDD[LogLine], period: Symbol) {
+  def domainNamePeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.referrer.domainName, line.date.year))
       case 'month => lines.map(line => (line.referrer.domainName, line.date.yearMonth))
@@ -258,10 +258,10 @@ object Main {
     }
 
     val counted = count(projection)
-    counted.map{case ((domain, period), count) => Vector(domain, period, count)}.map(unparse).saveAsTextFile("/tmp/räknare/domainName-" + period.name)
+    counted.map{case ((domain, period), count) => Vector(domain, period, count)}.map(unparse).saveAsTextFile(outputDir + "/domainName-" + period.name)
   }
 
-  def doiPeriod(lines: RDD[LogLine], period: Symbol) {
+  def doiPeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.doi, line.date.year))
       case 'month => lines.map(line => (line.doi, line.date.yearMonth))
@@ -269,10 +269,10 @@ object Main {
     }
 
     val counted = count(projection)
-    counted.map{case ((doi, period), count) => Vector(doi, period, 999)}.map(unparse).saveAsTextFile("/tmp/räknare/doi-" + period.name)
+    counted.map{case ((doi, period), count) => Vector(doi, period, 999)}.map(unparse).saveAsTextFile(outputDir + "/räknare/doi-" + period.name)
   }
 
-  def doiDomainPeriod(lines: RDD[LogLine], period: Symbol) {
+  def doiDomainPeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.doi, line.referrer.domain, line.date.year))
       case 'month => lines.map(line => (line.doi, line.referrer.domain, line.date.yearMonth))
@@ -280,10 +280,10 @@ object Main {
     }
 
     val counted = count(projection)
-    counted.map{case ((doi, domain, period), count) => Vector(doi, domain, period, count)}.map(unparse).saveAsTextFile("/tmp/räknare/doiDomain-" + period.name)
+    counted.map{case ((doi, domain, period), count) => Vector(doi, domain, period, count)}.map(unparse).saveAsTextFile(outputDir + "/doiDomain-" + period.name)
   }
 
-  def statusPeriod(lines: RDD[LogLine], period: Symbol) {
+  def statusPeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.status, line.date.year))
       case 'month => lines.map(line => (line.status, line.date.yearMonth))
@@ -294,10 +294,10 @@ object Main {
 
     val counted = count(withStatus)
 
-    counted.map{case ((status, period), count) => Vector(status, period, count)}.map(unparse).saveAsTextFile("/tmp/räknare/status-" + period.name)
+    counted.map{case ((status, period), count) => Vector(status, period, count)}.map(unparse).saveAsTextFile(outputDir + "/status-" + period.name)
   }
 
-  def topDomainsPeriod(lines: RDD[LogLine], period: Symbol) {
+  def topDomainsPeriod(lines: RDD[LogLine], period: Symbol, outputDir: String) {
     val projection = period match {
       case 'year => lines.map(line => (line.referrer.domain, line.date.year))
       case 'month => lines.map(line => (line.referrer.domain, line.date.yearMonth))
@@ -349,7 +349,7 @@ object Main {
         TopNCount(maxCount, newMin, newTable)
       })
 
-    topN.map{case (period, values) => Vector(period, values.table.map(tupleToVector))}.map(unparse).saveAsTextFile("/tmp/räknare/topDomains-" + period.name)
+    topN.map{case (period, values) => Vector(period, values.table.map(tupleToVector))}.map(unparse).saveAsTextFile(outputDir + "/topDomains-" + period.name)
   }
 
   def main(args: Array[String]) {
@@ -368,10 +368,8 @@ object Main {
 
     sc.setCheckpointDir("/tmp/spark/")
 
-    // val path = "/Users/joe/data/doi-logs/doi_logs/access_log_201210_cr5";
-    // val path = "/Users/joe/data/doi-logs-small/access_log_201210_cr5-tenthou"
     val inputPath = sparkConf.get("spark.raknare.inputfiles")
-    // val path = "file:///Users/joe/data/doi-logs/million/access_log_201210_cr5-million"
+    val outputDir = sparkConf.get("spark.raknare.ouputdir")
 
     println("INPUT FILES", inputPath)
 
@@ -397,37 +395,37 @@ object Main {
 
      if (tasks.contains("status")) {
       println("status " + forPeriod)
-      statusPeriod(lines, forPeriod)
+      statusPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("fullDomain")) {
       println("fullDomain " + forPeriod)
-      fullDomainPeriod(lines, forPeriod)
+      fullDomainPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("domain")) {
       println("domain " + forPeriod)
-      domainPeriod(lines, forPeriod)
+      domainPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("domainName")) {
       println("domainName " + forPeriod)
-      domainNamePeriod(lines, forPeriod)
+      domainNamePeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("doi")) {
       println("doi " + forPeriod)
-      doiPeriod(lines, forPeriod)
+      doiPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("doiDomain")) {
       println("doiDomain " + forPeriod)
-      doiDomainPeriod(lines, forPeriod)
+      doiDomainPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("topDomains")) {
       println("topDomains " + forPeriod)
-      topDomainsPeriod(lines, forPeriod)
+      topDomainsPeriod(lines, forPeriod, outputDir)
      }
 
 
