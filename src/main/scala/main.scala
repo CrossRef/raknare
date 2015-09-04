@@ -45,6 +45,8 @@ case class LogLine(date: Date, doi: String, referrer: DomainTriple, status: Stri
 object Main {
   def suffixList = new PublicSuffixListFactory().build();
 
+  def domainCache = new scala.collection.mutable.HashMap[String, DomainTriple]()
+
   def lineRe = "^([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\")$".r
   // val dateFormat1 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy", Locale.US)  
   // val dateFormat2 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy", Locale.US)
@@ -59,10 +61,10 @@ object Main {
   }
 
   
-  def constructDomainSimple(url: String) = {
+  def constructDomainSimple(url: String) : DomainTriple = {
     try {
       val realUrl = new URL(url)
-      val host = realUrl.getHost()
+      val host = realUrl.getHost()     
       val parts = host.split("\\.")
       val etld = parts(parts.length-1)
       val domain = parts(parts.length-2)
@@ -84,12 +86,24 @@ object Main {
     try {
       val host = new URL(url).getHost()
 
-      val etld = suffixList.getPublicSuffix(host)
-      val rest = host.substring(0, Math.max(host.length - etld.length - 1, 0))
-      val domain = rest.split("\\.").last
-      val subdomain = rest.substring(0, Math.max(rest.length - domain.length - 1, 0))
+      val result : DomainTriple = domainCache.get(host) match {
+        case Some(triple) => triple
+        case None => {    
+          val etld = suffixList.getPublicSuffix(host)
+          val rest = host.substring(0, Math.max(host.length - etld.length - 1, 0))
+          val domain = rest.split("\\.").last
+          val subdomain = rest.substring(0, Math.max(rest.length - domain.length - 1, 0))
 
-      DomainTriple(subdomain, domain, etld)
+          val triple = DomainTriple(subdomain, domain, etld)
+          domainCache.put(host, triple)
+
+          triple
+        }
+      }
+
+      return result
+
+      
     } catch {
       case e: java.net.MalformedURLException => {
         // e.g. ""
@@ -109,6 +123,7 @@ object Main {
     }
   }
 
+
   // def constructDomainCachced(url: String) = Memo.mutableHashMapMemo(constructDomain)
 
   def parseDate(input: String) = {
@@ -116,18 +131,14 @@ object Main {
     val dateFormat2 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy")
     val dateFormat3 = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZZ")
 
-    // println("PARSE " + input)
     val parsed = try {
-      // print("1")
       dateFormat1.parse(input)
       } catch {
         case e: Throwable => {
           try {
-            print("2")
             dateFormat2.parse(input)
           } catch {
             case e: Throwable => {
-              print("3")
               dateFormat3.parse(input)
             } case e: Throwable => {
               println(input)
@@ -151,6 +162,7 @@ object Main {
 
   // Return a full or empty sequence.
   def parseLine(line: String) : Seq[LogLine] = {
+    // println("parse" + line)
     // try {
       val pattern = lineRe.findFirstMatchIn(line)
       
@@ -162,7 +174,7 @@ object Main {
           val referrer = stripQuotes(matchedLine.group(9))
 
           val date = parseDate(dateStr)
-          val domainTriple = constructDomain(referrer);
+          val domainTriple : DomainTriple = constructDomainSimple(referrer);
 
           List(LogLine(date, doi, domainTriple, status))
         }
@@ -369,7 +381,7 @@ object Main {
     sc.setCheckpointDir("/tmp/spark/")
 
     val inputPath = sparkConf.get("spark.raknare.inputfiles")
-    val outputDir = sparkConf.get("spark.raknare.ouputdir")
+    val outputDir = sparkConf.get("spark.raknare.outputdir")
 
     println("INPUT FILES", inputPath)
 
