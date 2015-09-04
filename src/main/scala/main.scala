@@ -129,18 +129,19 @@ object Main {
   def parseDate(input: String) = {
     val dateFormat1 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy")
     val dateFormat2 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy")
-    val dateFormat3 = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZZ")
+    val dateFormat3 = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'")
 
     val parsed = try {
       dateFormat1.parse(input)
       } catch {
-        case e: Throwable => {
+        case e: java.text.ParseException => {
           try {
             dateFormat2.parse(input)
           } catch {
-            case e: Throwable => {
+            case e: java.text.ParseException => {
               dateFormat3.parse(input)
-            } case e: Throwable => {
+            } case e: java.text.ParseException => {
+              println("Fail date parse")
               println(input)
               throw(e)
             }
