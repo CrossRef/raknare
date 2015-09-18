@@ -149,7 +149,6 @@ object Main {
         }
       }
     
-
     val calendar = Calendar.getInstance
     calendar.setTime(parsed)
     
@@ -188,6 +187,16 @@ object Main {
         // List()
       // }
     // }  
+  }
+
+  // Parse lines. Immediately filter out dates that are out of the date range (there will be up to 1 month either side).
+  def parseLines(rdd : RDD[String], startYearMonth: Tuple2[Int, Int], endYearMonth: Tuple2[Int, Int]) = {
+    val startMonth = startYearMonth._1 * 12 + startYearMonth._2;
+    val endMonth = endYearMonth._1 * 12 + endYearMonth._2;
+
+    val lines = rdd.flatMap(parseLine)
+
+    lines.filter(line => (line.date._year * 12 + line.date._month) >= startMonth && (line.date._year * 12 + line.date._month) <= endMonth)
   }
 
   def tupleToVector(value: Tuple2[Any, Any]) = {
@@ -329,8 +338,7 @@ object Main {
 
     // Accumulator of size of table, minimum count in table, vector of value and count.
     case class TopNCount (size: Int, minCount: Int, table: List[Tuple2[Any, Int]])
-    // type TopNCount = Tuple3[Int, Int, Vector[Tuple2[Any, Int]]]
-    // val initialValue: TopNCount = Tuple3[Int, Int, Vector[Tuple2[Any, Int]]](0,0, Vector())
+
     val initialValue = TopNCount(0,0, List())
 
     val topN = grouped.aggregateByKey(initialValue)((acc: TopNCount, values) => {
@@ -365,6 +373,22 @@ object Main {
     topN.map{case (period, values) => Vector(period, values.table.map(tupleToVector))}.map(unparse).saveAsTextFile(outputDir + "/topDomains-" + period.name)
   }
 
+  def parseBoundaryDate(input: String) = {
+    val parts = input.split("-")
+    (Integer.parseInt(parts(0)), Integer.parseInt(parts(1)))
+  }
+
+  // Sequence of year-month components as found in path.
+  def dateRangePaths(start: Tuple2[Int, Int], end: Tuple2[Int, Int], base: String) = {
+    // Extend range by 1 either side. This is because of issues caused by servers being in different timezones, truncating log files at different points in time.
+    val startMonth = (start._1 * 12 + start._2) - 1
+    val endMonth = (end._1 * 12 + end._2) + 1
+    // Log naming changes at some point in history.
+    val paths = for (month <- startMonth until endMonth + 1) yield base + "access?log?%04d%02d*".format(month / 12, (month % 12) + 1)
+
+    paths.mkString(",")
+  }
+
   def main(args: Array[String]) {
     
     val sparkConf = new SparkConf()
@@ -377,19 +401,23 @@ object Main {
           println("Running in local mode")
           new SparkContext("local[1]", "Räknare Test", sparkConf)
         }
-      }
+      }      
 
-    sc.setCheckpointDir("/tmp/spark/")
-
-    val inputPath = sparkConf.get("spark.raknare.inputfiles")
+    // val inputPath = sparkConf.get("spark.raknare.inputfiles")
+    val inputDir = sparkConf.get("spark.raknare.inputdir")
     val outputDir = sparkConf.get("spark.raknare.outputdir")
+    
+    // Produce a sequence of date components that can be put into paths.
+    val startDate = parseBoundaryDate(sparkConf.get("spark.raknare.startdate"))
+    val endDate = parseBoundaryDate(sparkConf.get("spark.raknare.enddate"))
+    val paths = dateRangePaths(startDate, endDate, inputDir)
 
-    println("INPUT FILES", inputPath)
+    println("INPUT PATHS " +  paths)
 
-    val logFileInputs = sc.textFile(inputPath)
+    val logFileInputs = sc.textFile(paths)
   
     // Flatmap because some lines will fail to parse, returning an empty result. Therefore `parse` returns a 0 or 1-length Seq.
-    val lines = logFileInputs.flatMap(parseLine)
+    val lines = parseLines(logFileInputs, startDate, endDate)
 
     /*
      * Aggregate.
@@ -439,9 +467,6 @@ object Main {
      if (tasks.contains("topDomains")) {
       println("topDomains " + forPeriod)
       topDomainsPeriod(lines, forPeriod, outputDir)
-     }
-
-
-    
+     }    
   }
 }

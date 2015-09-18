@@ -2,28 +2,46 @@
 
 DOI Resolution log analysis. 
 
+## Preparation
+
+This runs over DOI resolution logs. You should have a directory of log files in the format e.g. `access_log_201210_cr5`. They should be plain text, not compressed. 
+
+Scala and SBT should be installed. Grab a copy of Apache Spark (pre-built).
+
+## Configuration
+
+The following configuration options are available and compulsory:
+
+ - `spark.raknare.period ` - the period to calculate stats for. One of 'year', 'month', 'day'. E.g. 'DOI resolutions *per day*'.
+ - `spark.raknare.tasks` - the type of tasks to run.
+  - `status` - HTTP status code (mostly 200 or 400). Useful for knowing how many non-existent DOI resolutions there were.
+  - `fullDomain` - Referral count per full domain, e.g. `www.google.com`
+  - `domain` - Referral count per name portion of domain, e.g. `google`
+  - `domainName` - Referral count per domain name proper, e.g. `google.com`
+  - `doi` - Resolution count per DOI.
+  - `doiDomain` - Resolution and referral per DOI per domain, e.g. [`10.5555`, `google.com`]
+  - `topDomains` - Top N referring domains per period.
+ - `spark.raknare.startdate` - first year/month to include, e.g. '2010-01'.
+ - `spark.raknare.enddate` - last year/month to include, e.g. '2010-01'.
+ - `spark.raknare.inputdir` - directory (local or Hadoop) to look for input files.
+ - `spark.raknare.outputdir` - directory to put files.
+
+Becuase there are some boundary problems with timezones, some entries for March can end up in April's log. Therefore the log files for months either side of the date range will be read. So if you are calculating only `2010-04`, ensure that files exist for `2010-03`, `2010-04` and `2010-05`. If you don't have them, just put blank files (but the results may not be accurate).
+
 To run:
 
-Spark local:
-
-    sbt run
-
-Spark-submit
+1. Produce a packaged JAR. This includes all dependencies and can be deployed stand-alone.
 
     sbt-assembly
+
+2. Run through Spark runner. E.g.:
 
     ~/Downloads/spark-1.4.1-bin-hadoop2.6/bin/spark-submit \
     --conf spark.raknare.period="month" \
     --conf spark.raknare.tasks="status" \
-    --conf spark.raknare.inputfiles="file:///Users/joe/data/doi-logs/million/access_log_2015*" \
+    --conf spark.raknare.startdate="2012-10" \
+    --conf spark.raknare.enddate="2012-10" \
+    --conf spark.raknare.inputdir="file:///Users/joe/data/doi-logs/million/" \
     --conf spark.raknare.outputdir="/tmp/raknare" \
-    --master local[*] \
-    --class org.crossref.räknare.Main /Users/joe/sc/räknare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar
-
-
-
-    --conf spark.raknare.period="month" \
-    --conf spark.raknare.tasks="status" \
-    --conf spark.raknare.inputfiles="/data-in/doi_logs/access_log_2015*" \
     --master local[*] \
     --class org.crossref.räknare.Main /Users/joe/sc/räknare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar
