@@ -13,20 +13,21 @@ Scala and SBT should be installed. Grab a copy of Apache Spark (pre-built).
 The following configuration options are available and compulsory:
 
  - `spark.raknare.period ` - the period to calculate stats for. One of 'year', 'month', 'day'. E.g. 'DOI resolutions *per day*'.
- - `spark.raknare.tasks` - the type of tasks to run.
+ - `spark.raknare.tasks` - the type of tasks to run, separated by commas. Each will run for the given period.
   - `status` - HTTP status code (mostly 200 or 400). Useful for knowing how many non-existent DOI resolutions there were.
   - `fullDomain` - Referral count per full domain, e.g. `www.google.com`
-  - `domain` - Referral count per name portion of domain, e.g. `google`
-  - `domainName` - Referral count per domain name proper, e.g. `google.com`
+  - `domainName` - Referral count per name portion of domain name only, e.g. `google`
+  - `domain` - Referral count per domain name proper, e.g. `google.com`
   - `doi` - Resolution count per DOI.
   - `doiDomain` - Resolution and referral per DOI per domain, e.g. [`10.5555`, `google.com`]
   - `topDomains` - Top N referring domains per period.
+  - `domainList` - list of all domain, domainName, fullDomain for all time.
  - `spark.raknare.startdate` - first year/month to include, e.g. '2010-01'.
  - `spark.raknare.enddate` - last year/month to include, e.g. '2010-01'.
  - `spark.raknare.inputdir` - directory (local or Hadoop) to look for input files.
  - `spark.raknare.outputdir` - directory to put files.
 
-Becuase there are some boundary problems with timezones, some entries for March can end up in April's log. Therefore the log files for months either side of the date range will be read. So if you are calculating only `2010-04`, ensure that files exist for `2010-03`, `2010-04` and `2010-05`. If you don't have them, just put blank files (but the results may not be accurate).
+Becuase there are some boundary problems with timezones, some entries for March can end up in April's log. Therefore the log files for months either side of the date range will be read. So if you are calculating only `2010-04`, ensure that files exist for `2010-03`, `2010-04` and `2010-05`, e.g. `access_log_201005_FAKE`. If you don't have them, just put blank files (but the results may not be accurate).
 
 To run:
 
@@ -36,12 +37,54 @@ To run:
 
 2. Run through Spark runner. E.g.:
 
-    ~/Downloads/spark-1.4.1-bin-hadoop2.6/bin/spark-submit \
+   If you don't run it in tmux you'll be sorry.
+ 
+    time ~/Downloads/spark-1.4.1-bin-hadoop2.6/bin/spark-submit \
     --conf spark.raknare.period="month" \
-    --conf spark.raknare.tasks="status" \
+    --conf spark.raknare.tasks="domainList,topDomains,doiDomain,doi,domain,domainName,fullDomain,status" \
     --conf spark.raknare.startdate="2012-10" \
     --conf spark.raknare.enddate="2012-10" \
-    --conf spark.raknare.inputdir="file:///Users/joe/data/doi-logs/million/" \
+    --conf spark.raknare.inputdir="file:///Users/joe/data/doi-logs/one/" \
     --conf spark.raknare.outputdir="/tmp/raknare" \
     --master local[*] \
     --class org.crossref.räknare.Main /Users/joe/sc/räknare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar
+
+
+On Habanero:
+
+      export SPARK_WORKER_DIR="/data-out/spark-worker"
+      export SPARK_LOCAL_DIR="/data-out/spark-local"
+
+
+    time ~/spark-1.4.1-bin-hadoop2.6/bin/spark-submit \
+    --conf spark.raknare.period="month" \
+    --conf spark.raknare.tasks="status,fullDomain,domain,domainName,doi,doiDomain,topDomains" \
+    --conf spark.raknare.startdate="2012-10" \
+    --conf spark.raknare.enddate="2015-04" \
+    --conf spark.raknare.inputdir="file:///data-in/doi_logs/" \ 
+    --conf spark.raknare.outputdir="file:///data-out/raknare/" \ 
+    --master local[*] \
+    --class org.crossref.räknare.Main /home/joe/r-knare/target/scala-2.10/r-knare-assembly-0.1-SNAPSHOT.jar
+
+
+3. Sit back
+
+The user interface is available on port 4040. Habanero: http://192.168.1.103:4040/jobs/
+
+4. Merge files
+
+    time find domain-month -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > domain-month.txt
+    time find domainName-month -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > domainName-month.txt 
+    time find fullDomain-month -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > fullDomain-month.txt 
+    time find status-month -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > status-month.txt 
+    time find topDomains-month -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > topDomains-month.txt 
+
+    time find domainList -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > domainList.txt 
+    time find fullDomainList -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > fullDomainList.txt 
+    time find domainNameList -name "part-[0-9]*" -print0  | xargs -0 -I file cat file | sort > domainNameList.txt 
+     
+     
+
+# TODO
+
+exclude robot from logs

@@ -8,11 +8,11 @@ import net.liftweb.json._
 import net.liftweb.json.Serialization.{read, write}
 import java.net.URL
 import java.util.{Arrays, Calendar, Locale}
+import scala.collection.immutable.HashMap
 import scala.collection.JavaConversions._
 import math.max 
-import de.malkusch.whoisServerList.publicSuffixList.PublicSuffixListFactory
 import java.util.concurrent.TimeUnit
-
+import java.io.File
 
 case class Date(_year: Int, _month: Int, _day: Int) {
   def year: String = {
@@ -31,7 +31,11 @@ case class Date(_year: Int, _month: Int, _day: Int) {
 
 case class DomainTriple(subdomain: String, domainName: String, etld: String) {
   def fullDomain = {
-    subdomain + "." + domainName + "." + etld
+    if (subdomain.isEmpty) {
+      domainName + "." + etld
+    } else {
+      subdomain + "." + domainName + "." + etld
+    }
   }
 
   def domain = {
@@ -43,14 +47,7 @@ case class LogLine(date: Date, doi: String, referrer: DomainTriple, status: Stri
 
 
 object Main {
-  def suffixList = new PublicSuffixListFactory().build();
-
-  def domainCache = new scala.collection.mutable.HashMap[String, DomainTriple]()
-
   def lineRe = "^([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\") ([^\"]{1,2}|[^\"][^ ]*[^\"]|\"[^\"]*\")$".r
-  // val dateFormat1 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy", Locale.US)  
-  // val dateFormat2 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy", Locale.US)
-  // val dateFormat3 = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZZ", Locale.US)  
 
   def stripQuotes(input: String) = {
     if (input.startsWith("\"") && input.endsWith("\"")) {
@@ -59,72 +56,42 @@ object Main {
         input
       }
   }
-
   
-  def constructDomainSimple(url: String) : DomainTriple = {
-    try {
-      val realUrl = new URL(url)
-      val host = realUrl.getHost()     
-      val parts = host.split("\\.")
-      val etld = parts(parts.length-1)
-      val domain = parts(parts.length-2)
-      val subdomain = parts.dropRight(2).mkString(".")
-      DomainTriple(subdomain, domain, etld)
-    } catch {
-      case e: java.net.MalformedURLException => {
-        // e.g. ""
-        DomainTriple("", "no-referrer", "")
-      }
-      case e: java.lang.ArrayIndexOutOfBoundsException => {
-        // e.g. http://http://dx.doi.org/10.1016/S0147-1767(01)00023-2?nosfx=y&id=2010123075&sinbun=4800&prmstaging=&pds_handle=210201215049648310120290089693887&calling_system=primo
-        DomainTriple("", "no-referrer", "") 
-      }
-    }
-  }
-
   def constructDomain(url: String) : DomainTriple = {
     try {
-      val host = new URL(url).getHost()
-
-      val result : DomainTriple = domainCache.get(host) match {
-        case Some(triple) => triple
-        case None => {    
-          val etld = suffixList.getPublicSuffix(host)
-          val rest = host.substring(0, Math.max(host.length - etld.length - 1, 0))
-          val domain = rest.split("\\.").last
-          val subdomain = rest.substring(0, Math.max(rest.length - domain.length - 1, 0))
-
-          val triple = DomainTriple(subdomain, domain, etld)
-          domainCache.put(host, triple)
-
-          triple
-        }
+      if (url.trim().length == 0) {
+        DomainTriple("", "no-reffer", "")
+      } else if (url.startsWith("file:")) {
+        DomainTriple("", "local-file", "") 
+      } else {
+        val host = new URL(url).getHost().toLowerCase()
+        return ETld.split(host)  
       }
-
-      return result
-
-      
     } catch {
       case e: java.net.MalformedURLException => {
         // e.g. ""
-        DomainTriple("", "no-referrer", "")
+        DomainTriple("", "malformed", "")
       }
       case e: java.lang.ArrayIndexOutOfBoundsException => {
         // e.g. http://http://dx.doi.org/10.1016/S0147-1767(01)00023-2?nosfx=y&id=2010123075&sinbun=4800&prmstaging=&pds_handle=210201215049648310120290089693887&calling_system=primo
-        DomainTriple("", "no-referrer", "") 
+        DomainTriple("", "malformed", "") 
       }
       case e: java.lang.NullPointerException => {
         // e.g. http://///fQMAAAAAAAAFAAAABmlfMzYwaQpTUzJDWTZWUDRRBmNfb3ZlcgExBGlfZmsABmlfMzYwYwExB2lfMzYwZXoFZmFsc2UAAAAA
         println("***ERROR***")
         println(url)
 
-        DomainTriple("", "no-referrer", "")
+        DomainTriple("", "malformed", "")
+      }
+      case e: java.lang.Exception => {
+        // everything else. After all, any string could be sent.
+        println("***ERROR***")
+        println(url)
+
+        DomainTriple("", "malformed", "")
       }
     }
   }
-
-
-  // def constructDomainCachced(url: String) = Memo.mutableHashMapMemo(constructDomain)
 
   def parseDate(input: String) = {
     val dateFormat1 = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZ yyyy")
@@ -174,7 +141,7 @@ object Main {
           val referrer = stripQuotes(matchedLine.group(9))
 
           val date = parseDate(dateStr)
-          val domainTriple : DomainTriple = constructDomainSimple(referrer);
+          val domainTriple : DomainTriple = constructDomain(referrer);
 
           List(LogLine(date, doi, domainTriple, status))
         }
@@ -211,6 +178,8 @@ object Main {
   def count(lines: RDD[_]) = {
     lines.map(x => (x, 1)).reduceByKey(_ + _)
   }
+
+  // TASKS
 
   // "www.xyz.com"
   def fullDomainAllTime(lines: RDD[LogLine], outputDir: String) {
@@ -373,6 +342,19 @@ object Main {
     topN.map{case (period, values) => Vector(period, values.table.map(tupleToVector))}.map(unparse).saveAsTextFile(outputDir + "/topDomains-" + period.name)
   }
 
+  // Tuples of domain and domainName, domain and fullDomain. For easy look-ups later.
+  def domainList(lines: RDD[LogLine], outputDir: String) {
+    val domains = lines.map(line => line.referrer.domainName).distinct();
+    val domainNames = lines.map(line => (line.referrer.domain, line.referrer.domainName)).distinct();
+    val fullDomains = lines.map(line => (line.referrer.fullDomain, line.referrer.domainName)).distinct();
+
+    domains.map(unparse).saveAsTextFile(outputDir + "/domainList")
+    domainNames.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/domainNameList")
+    fullDomains.map(tupleToVector).map(unparse).saveAsTextFile(outputDir + "/fullDomainList")
+  }
+
+  // UTILS
+
   def parseBoundaryDate(input: String) = {
     val parts = input.split("-")
     (Integer.parseInt(parts(0)), Integer.parseInt(parts(1)))
@@ -381,10 +363,11 @@ object Main {
   // Sequence of year-month components as found in path.
   def dateRangePaths(start: Tuple2[Int, Int], end: Tuple2[Int, Int], base: String) = {
     // Extend range by 1 either side. This is because of issues caused by servers being in different timezones, truncating log files at different points in time.
-    val startMonth = (start._1 * 12 + start._2) - 1
+    val startMonth = (start._1 * 12 + start._2) - 2
     val endMonth = (end._1 * 12 + end._2) + 1
+
     // Log naming changes at some point in history.
-    val paths = for (month <- startMonth until endMonth + 1) yield base + "access?log?%04d%02d*".format(month / 12, (month % 12) + 1)
+    val paths = for (month <- startMonth until endMonth) yield base + "access?log?%04d%02d*".format(month / 12, (month % 12) + 1)
 
     paths.mkString(",")
   }
@@ -417,7 +400,7 @@ object Main {
     val logFileInputs = sc.textFile(paths)
   
     // Flatmap because some lines will fail to parse, returning an empty result. Therefore `parse` returns a 0 or 1-length Seq.
-    val lines = parseLines(logFileInputs, startDate, endDate)
+    val lines = parseLines(logFileInputs, startDate, endDate).persist(StorageLevel.DISK_ONLY)
 
     /*
      * Aggregate.
@@ -434,38 +417,43 @@ object Main {
 
      println("TASKS", tasks.deep.mkString(" "))
 
+     if (tasks.contains("domainList")) {
+      println("Task: Domain list")
+      domainList(lines, outputDir)
+     }
+
      if (tasks.contains("status")) {
-      println("status " + forPeriod)
+      println("Task: Status " + forPeriod)
       statusPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("fullDomain")) {
-      println("fullDomain " + forPeriod)
+      println("Task: Full Domain " + forPeriod)
       fullDomainPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("domain")) {
-      println("domain " + forPeriod)
+      println("Task: Domain " + forPeriod)
       domainPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("domainName")) {
-      println("domainName " + forPeriod)
+      println("Task: Domain Name " + forPeriod)
       domainNamePeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("doi")) {
-      println("doi " + forPeriod)
+      println("Task: DOI " + forPeriod)
       doiPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("doiDomain")) {
-      println("doiDomain " + forPeriod)
+      println("Task: DOI Domain " + forPeriod)
       doiDomainPeriod(lines, forPeriod, outputDir)
      }
 
      if (tasks.contains("topDomains")) {
-      println("topDomains " + forPeriod)
+      println("Task: Top Domains " + forPeriod)
       topDomainsPeriod(lines, forPeriod, outputDir)
      }    
   }

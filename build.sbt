@@ -1,7 +1,6 @@
 scalaVersion := "2.10.4"
 libraryDependencies += "org.apache.spark" % "spark-core_2.10" % "1.4.1"
 libraryDependencies += "net.liftweb" %% "lift-json" % "2.6"
-libraryDependencies += "de.malkusch.whois-server-list" % "public-suffix-list" % "2.0.1"
 
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
   {
